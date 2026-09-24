@@ -6,6 +6,10 @@ services:
     image: trove:latest
     container_name: trove
     restart: unless-stopped
+    # Host docker group gid (963) so the non-root container user can open the
+    # mounted docker.sock for dockwatch stats/monitoring.
+    group_add:
+      - "963"
     ports:
       - "8000:8000"
     environment:
@@ -19,7 +23,14 @@ services:
       # - TROVE_CA_CERT_PATH=/app/data/ca/ca.crt
       # - TROVE_CA_KEY_PATH=/app/data/ca/ca.key
     volumes:
-      - ./data:/app/data
+      # :z relabels the volume for container access under SELinux (Enforcing).
+      - ./data:/app/data:z
+      # Docker socket for dockwatch container stats/monitoring. Deliberately NOT
+      # labeled with :z — the socket must keep its native container_runtime_t
+      # label so the SELinux policy allows container_t to connectto it.
+      # NOTE: mounting the socket grants the container control over the Docker
+      # daemon (root-equivalent on the host). Keep this container trusted.
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
       interval: 30s

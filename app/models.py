@@ -244,3 +244,84 @@ class CaAuthority(Base):
     #: Copies of the cert PEM for roots this CA will embed in chains.
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Certificate deployment (push issued material to hosts / webservers)
+# ---------------------------------------------------------------------------
+
+
+class DeploymentTarget(Base):
+    """A host that receives pushed certificate material.
+
+    Auth is either an encrypted SSH private key (``ssh_private_key``) or an
+    encrypted password (``ssh_password``); both go through ``services.key_store``
+    (AES-256-GCM) so plaintext credentials never touch SQLite. When only
+    ``webhook_url`` is set the target is webhook-only. Files are written
+    atomically (temp file -> rename) and keys are chmod 0600.
+    """
+
+    __tablename__ = "deployment_targets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    host: Mapped[str] = mapped_column(String(255))
+    port: Mapped[int] = mapped_column(Integer, default=22)
+    ssh_user: Mapped[str] = mapped_column(String(64), default="root")
+    #: Encrypted PKCS#8 private key (AES-256-GCM via key_store) for key auth.
+    ssh_private_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Encrypted password (AES-256-GCM via key_store) for password auth.
+    ssh_password: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cert_path: Mapped[str] = mapped_column(String(255), default="")
+    key_path: Mapped[str] = mapped_column(String(255), default="")
+    chain_path: Mapped[str] = mapped_column(String(255), default="")
+    #: Command run after a successful push (e.g. ``systemctl reload nginx``).
+    reload_command: Mapped[str] = mapped_column(String(255), default="")
+    #: Optional webhook URL hit after a successful push (reuses reload webhooks).
+    webhook_url: Mapped[str] = mapped_column(String(255), default="")
+    #: Deploy automatically on issue/renew when this target is assigned.
+    auto_deploy: Mapped[bool] = mapped_column(Boolean, default=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+    @property
+    def ssh_key_configured(self) -> bool:
+        return bool(self.ssh_private_key)
+
+    @property
+    def ssh_password_configured(self) -> bool:
+        return bool(self.ssh_password)
+
+
+class CertDeploymentTarget(Base):
+    """Many-to-many: which targets a certificate is deployed to."""
+
+    __tablename__ = "cert_deployment_targets"
+
+    cert_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("certificates.id", ondelete="CASCADE"), primary_key=True
+    )
+    target_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("deployment_targets.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class DeploymentRecord(Base):
+    """One deployment attempt (audit: which target got which version, when)."""
+
+    __tablename__ = "deployment_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cert_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("certificates.id", ondelete="SET NULL"), nullable=True
+    )
+    target_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("deployment_targets.id", ondelete="SET NULL"), nullable=True
+    )
+    serial: Mapped[str] = mapped_column(String(255), default="")
+    state: Mapped[str] = mapped_column(String(16), default="success")  # success|failed|skipped
+    detail: Mapped[str] = mapped_column(Text, default="")
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)

@@ -17,6 +17,7 @@ from ..timeutil import add_days, utcnow
 from . import (
     acme_service,
     crypto_service,
+    deployment_service,
     key_store,
     notification_service,
     providers,
@@ -323,6 +324,7 @@ async def issue_cert(db: AsyncSession, payload: schemas.CertCreate) -> models.Ce
     )
     if not webhook_ok:
         await notify_event(db, "Reload webhook failed", webhook_msg, "error")
+    await deployment_service.deploy_cert_targets(db, cert, reason="issue")
     return cert
 
 
@@ -376,6 +378,7 @@ async def renew_cert(
     )
     if not webhook_ok:
         await notify_event(db, "Reload webhook failed", webhook_msg, "error")
+    await deployment_service.deploy_cert_targets(db, cert, reason="renew")
     return cert
 
 

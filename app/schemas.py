@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CertCreate(BaseModel):
@@ -530,3 +530,113 @@ class GatewayDirectTestResult(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict)
     body: str = ""
     error: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Certificate deployment
+# ---------------------------------------------------------------------------
+
+
+class DeploymentTargetCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    host: str = Field(min_length=1, max_length=255)
+    port: int = Field(default=22, ge=1, le=65535)
+    ssh_user: str = Field(default="root", max_length=64)
+    #: Raw PEM private key or password; encrypted at rest by the service.
+    ssh_private_key: str = ""
+    ssh_password: str = ""
+    cert_path: str = Field(default="", max_length=255)
+    key_path: str = Field(default="", max_length=255)
+    chain_path: str = Field(default="", max_length=255)
+    reload_command: str = Field(default="", max_length=255)
+    webhook_url: str = Field(default="", max_length=255)
+    auto_deploy: bool = True
+    enabled: bool = True
+
+    @field_validator("name", "host", "ssh_user")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        return v.strip()
+
+    @field_validator("cert_path", "key_path", "chain_path")
+    @classmethod
+    def _absolute_paths(cls, v: str) -> str:
+        return (v or "").strip()
+
+    @field_validator("webhook_url")
+    @classmethod
+    def _check_webhook_url(cls, v: str) -> str:
+        v = (v or "").strip()
+        if v and not v.startswith(("http://", "https://")):
+            raise ValueError("webhook_url must start with http:// or https://")
+        return v
+
+
+class DeploymentTargetUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    host: str | None = Field(default=None, min_length=1, max_length=255)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    ssh_user: str | None = Field(default=None, max_length=64)
+    ssh_private_key: str = ""
+    ssh_password: str = ""
+    cert_path: str = ""
+    key_path: str = ""
+    chain_path: str = ""
+    reload_command: str = ""
+    webhook_url: str = ""
+    auto_deploy: bool | None = None
+    enabled: bool | None = None
+
+
+class DeploymentTargetRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    host: str
+    port: int
+    ssh_user: str
+    ssh_key_configured: bool = False
+    ssh_password_configured: bool = False
+    cert_path: str
+    key_path: str
+    chain_path: str
+    reload_command: str
+    webhook_url: str
+    auto_deploy: bool
+    enabled: bool
+    created_at: datetime
+
+
+class DeploymentRecordRead(BaseModel):
+    id: int
+    target_id: int | None = None
+    serial: str = ""
+    state: str = "success"
+    detail: str = ""
+    duration_ms: int = 0
+    created_at: datetime
+
+
+class CertDeploymentAssign(BaseModel):
+    target_id: int
+
+
+class CertDeploymentRead(BaseModel):
+    """A certificate's assignment to a target with its latest attempt."""
+
+    target_id: int
+    target_name: str
+    auto_deploy: bool
+    enabled: bool
+    last_state: str | None = None
+    last_detail: str = ""
+    last_at: datetime | None = None
+
+
+class DeployResult(BaseModel):
+    """Results of a manual deploy-via-API call, grouped by success/failure."""
+
+    deployed: list[int] = Field(default_factory=list)  # target ids
+    failed: list[int] = Field(default_factory=list)  # target ids
+    details: dict[str, str] = Field(default_factory=dict)  # target id -> message

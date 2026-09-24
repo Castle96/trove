@@ -39,6 +39,7 @@ from .api import (
     routes_auth,
     routes_ca,
     routes_certs,
+    routes_deployments,
     routes_gateway,
     routes_ocsp,
     routes_requests,
@@ -312,6 +313,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_ca.router, prefix="/api")
     app.include_router(routes_requests.router, prefix="/api")
     app.include_router(routes_ocsp.router, prefix="/api")
+    app.include_router(routes_deployments.router, prefix="/api")
 
     # ---- Public API Gateway hot path (registered before the SPA mount) ----
     app.include_router(gateway_proxy_router)

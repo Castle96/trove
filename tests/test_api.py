@@ -297,3 +297,22 @@ async def test_optional_api_key_auth(client, monkeypatch) -> None:
         assert len(allowed.json()) == 5
     finally:
         get_cached_settings.cache_clear()
+
+
+async def test_dockwatch_routes_share_api_key_auth(client, monkeypatch) -> None:
+    """Dockwatch routers sit behind the same principal gate as the cert API."""
+    from app.config import get_settings as get_cached_settings
+
+    monkeypatch.setenv("TROVE_API_KEY", "sekret-test-key")
+    get_cached_settings.cache_clear()
+    try:
+        denied = await client.get("/api/models/fleet")
+        assert denied.status_code in (401, 403)
+
+        allowed = await client.get(
+            "/api/models/fleet",
+            headers={"Authorization": "Bearer sekret-test-key"},
+        )
+        assert allowed.status_code == 200
+    finally:
+        get_cached_settings.cache_clear()

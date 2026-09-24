@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
 from ..deps import DB, ROLE_RANK, Admin, Auth, Operator, get_principal
-from ..services import cert_service, providers, requests_service
+from ..services import cert_service, deployment_service, providers, requests_service
 
 router = APIRouter(
     prefix="/certs",
@@ -354,3 +354,102 @@ async def download_pem(cert_id: str, db: DB) -> Response:
         media_type="application/x-pem-file",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Certificate deployment (targets are managed under /api/deployments)
+# ---------------------------------------------------------------------------
+
+
+async def _cert_deployments(
+    db: AsyncSession, cert: models.Certificate
+) -> list[schemas.CertDeploymentRead]:
+    out: list[schemas.CertDeploymentRead] = []
+    for target in await deployment_service.assigned_targets(db, cert.id):
+        last = await deployment_service.last_record(db, cert.id, target.id)
+        out.append(
+            schemas.CertDeploymentRead(
+                target_id=target.id,
+                target_name=target.name,
+                auto_deploy=target.auto_deploy,
+                enabled=target.enabled,
+                last_state=last.state if last else None,
+                last_detail=last.detail if last else "",
+                last_at=last.created_at if last else None,
+            )
+        )
+    return out
+
+
+def _deploy_result(records: list[models.DeploymentRecord]) -> schemas.DeployResult:
+    result = schemas.DeployResult()
+    for record in records:
+        tid = record.target_id if record.target_id is not None else -1
+        if record.state == "success":
+            result.deployed.append(tid)
+        else:
+            result.failed.append(tid)
+        result.details[str(tid)] = record.detail
+    return result
+
+
+@router.get("/{cert_id}/deployments", response_model=list[schemas.CertDeploymentRead])
+async def list_cert_deployments(cert_id: str, db: DB) -> list[schemas.CertDeploymentRead]:
+    cert = await cert_service.get_cert(db, cert_id)
+    if not cert or cert.revoked:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificate not found")
+    return await _cert_deployments(db, cert)
+
+
+@router.post(
+    "/{cert_id}/deployments",
+    response_model=list[schemas.CertDeploymentRead],
+    status_code=status.HTTP_201_CREATED,
+)
+async def assign_deployment_target(
+    cert_id: str, payload: schemas.CertDeploymentAssign, db: DB, _op: Operator
+) -> list[schemas.CertDeploymentRead]:
+    cert = await cert_service.get_cert(db, cert_id)
+    if not cert or cert.revoked:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificate not found")
+    target = await deployment_service.get_target(db, payload.target_id)
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Deployment target not found")
+    await deployment_service.assign_target(db, cert.id, target.id)
+    await db.commit()
+    return await _cert_deployments(db, cert)
+
+
+@router.delete("/{cert_id}/deployments/{target_id}")
+async def unassign_deployment_target(
+    cert_id: str, target_id: int, db: DB, _op: Operator
+) -> dict[str, bool]:
+    cert = await cert_service.get_cert(db, cert_id)
+    if not cert or cert.revoked:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificate not found")
+    removed = await deployment_service.unassign_target(db, cert.id, target_id)
+    if not removed:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificate is not assigned to that target")
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/{cert_id}/deployments/history", response_model=list[schemas.DeploymentRecordRead])
+async def deployment_history(
+    cert_id: str, db: DB, limit: int = Query(50, ge=1, le=500)
+) -> list[schemas.DeploymentRecordRead]:
+    cert = await cert_service.get_cert(db, cert_id)
+    if not cert or cert.revoked:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificate not found")
+    return await deployment_service.list_records(db, cert.id, limit)
+
+
+@router.post("/{cert_id}/deploy", response_model=schemas.DeployResult)
+async def deploy_cert_now(cert_id: str, db: DB, _op: Operator) -> schemas.DeployResult:
+    """Manually redeploy to every assigned target (regardless of auto_deploy)."""
+    cert = await cert_service.get_cert(db, cert_id)
+    if not cert or cert.revoked:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificate not found")
+    records = await deployment_service.deploy_cert_targets(db, cert, reason="manual")
+    await db.commit()
+    return _deploy_result(records)

@@ -95,9 +95,10 @@ class Settings(BaseSettings):
     #: cancelled, so shutdown must not block on them indefinitely).
     shutdown_grace_seconds: float = 3.0
     database_url: str = "sqlite+aiosqlite:///./dockwatch.db"
-    #: Create missing tables on startup via ``Base.metadata.create_all``. Off by
-    #: default in the container, where Alembic owns the schema (the entrypoint
-    #: runs ``alembic upgrade head``). Enable for quick local/dev runs.
+    #: Create missing tables on startup via ``Base.metadata.create_all``. On by
+    #: default (hypervisor + container): ``create_all`` is safe to run every
+    #: boot because it only adds missing tables and never mutates existing ones.
+    #: Set to false when the schema is managed by an external migration tool.
     create_all_on_startup: bool = True
     #: Connection pool sizing (ignored for SQLite, which uses a single writer).
     database_pool_size: int = 5

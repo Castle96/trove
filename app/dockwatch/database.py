@@ -101,10 +101,10 @@ def __getattr__(name: str) -> Any:
 async def init_db() -> None:
     """Create all tables unless ``create_all_on_startup`` is disabled.
 
-    In the container, Alembic owns the schema (the entrypoint runs
-    ``alembic upgrade head``), so ``create_all`` is skipped. It stays on for
-    local/dev runs so the app works without a migration step. Safe to call on
-    every startup; ``create_all`` never mutates existing tables.
+    ``create_all`` is additive-only (it never mutates existing tables), so it
+    is safe to run on every startup in local/dev runs and in the container.
+    Set ``DOCKWATCH_CREATE_ALL_ON_STARTUP=false`` when the schema is managed
+    by an external migration tool instead.
     """
     if not get_settings().create_all_on_startup:
         return
