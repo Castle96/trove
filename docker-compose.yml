@@ -1,0 +1,28 @@
+services:
+  trove:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: trove:latest
+    container_name: trove
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # TROVE_API_KEY: uncomment + set a strong shared API key to lock the API.
+      # - TROVE_API_KEY=change-me
+      - TROVE_DATA_DIR=/app/data
+      - TROVE_DATABASE_URL=sqlite+aiosqlite:////app/data/trove.db
+      - DOCKWATCH_DATABASE_URL=sqlite+aiosqlite:////app/data/dockwatch.db
+      # Local CA for real issuance / OCSP / CRL via the managed-CA API
+      # (preferred over the legacy filesystem CA below).
+      # - TROVE_CA_CERT_PATH=/app/data/ca/ca.crt
+      # - TROVE_CA_KEY_PATH=/app/data/ca/ca.key
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Env / secrets
+.env
+*.db
+*.db-wal
+*.db-shm
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.hypothesis/
+
+# Runtime data (encrypted keys, local CA key material, seeds)
+data/
+!data/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
