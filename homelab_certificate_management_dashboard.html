@@ -184,7 +184,7 @@
             <!-- Search Input -->
             <div class="relative flex-1 min-w-[220px]">
                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
-                <input type="text" id="search-certs" placeholder="Search domain, SANs, or issuer..." 
+                <input type="text" id="search-certs" placeholder="Search domain, SANs, or issuer..."
                        class="w-full bg-dark-900 border border-gray-700/70 rounded-lg pl-8 pr-3 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-brand-500 transition">
             </div>
 
@@ -699,7 +699,7 @@
 
             entry.className = `${color} text-[11px] font-mono`;
             entry.innerHTML = `<span class="text-gray-600">[${timestamp}]</span> <span class="font-bold">${prefix}</span> ${escapeHtml(message)}`;
-            
+
             term.appendChild(entry);
             term.scrollTop = term.scrollHeight;
         }
@@ -719,7 +719,7 @@
             if (!cert) return;
 
             logTerminal(`Initiating ACME renewal for ${cert.cn} via ${cert.protocol}...`, 'acme');
-            
+
             setTimeout(() => {
                 logTerminal(`Generating 2048/EC Private Key & CSR for ${cert.cn}...`, 'info');
             }, 600);
@@ -732,14 +732,14 @@
                 // Update expiry date +90 days from current simDate
                 const newExp = new Date(simDate);
                 newExp.setDate(newExp.getDate() + 90);
-                
+
                 cert.issuedDate = simDate.toISOString().split('T')[0];
                 cert.expiresDate = newExp.toISOString().split('T')[0];
                 cert.serial = generateRandomSerial();
 
                 logTerminal(`Certificate issued by ${cert.issuer}. Serial: ${cert.serial}`, 'success');
                 logTerminal(`Triggered webhook reload for Reverse Proxy (Caddy/Nginx)... 200 OK`, 'success');
-                
+
                 updateDashboard();
             }, 2200);
         };
