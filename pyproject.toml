@@ -1,0 +1,78 @@
+[project]
+name = "trove"
+version = "0.2.0"
+description = "Unified homelab control plane: PKI & certificate lifecycle, Docker monitoring, inventory, vulnerability scanning, agent swarm, voice pipeline, and API gateway"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "aiosqlite>=0.20",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "cryptography>=43",
+    "httpx>=0.27",
+    "asyncpg>=0.30",  # PostgreSQL driver (used when DOCKWATCH_DATABASE_URL uses +asyncpg)
+    "docker[ssh]>=7.1",
+    "psutil>=7.2.2",
+    "alembic>=1.20.0",
+    "slowapi>=0.1.9",
+    "prometheus-client>=0.20",  # /api/metrics export
+    "faster-whisper>=1.2.1",
+    "piper-tts>=1.8.0",
+]
+
+[project.scripts]
+jarvis-worker = "app.dockwatch.services.voice_worker:main"
+
+[project.optional-dependencies]
+voice-mic = [
+    "sounddevice>=0.5.6",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "asgi-lifespan>=2.1",
+    "ruff>=0.5",
+    "pytest-cov>=7.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers --cov=app --cov-report=term-missing"
+markers = [
+    "integration: tests that exercise a live component (Docker, psutil, DB)",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = ["app/static/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]

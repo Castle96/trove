@@ -1,0 +1,5 @@
+/* Tailwind build input — compiled to css/tailwind.css via the CLI.
+ * Keep this file minimal: only the Tailwind layer directives. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
