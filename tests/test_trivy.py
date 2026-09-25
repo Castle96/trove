@@ -122,7 +122,7 @@ def test_run_scan_sync_nonzero_exit(monkeypatch) -> None:
         stderr = "module 'podman' has exited with error"
         stdout = ""
 
-    monkeypatch.setattr(trivy.resolve_trivy_bin, "__call__", lambda *a, **k: "/usr/bin/trivy")
+    monkeypatch.setattr(trivy, "resolve_trivy_bin", lambda: "/usr/bin/trivy")
     monkeypatch.setattr(trivy.subprocess, "run", lambda *a, **k: _Err())
     with pytest.raises(trivy.TrivyScanError, match="podman"):
         trivy._run_scan_sync("nginx", "docker", 60.0)
@@ -134,7 +134,7 @@ def test_run_scan_sync_invalid_json(monkeypatch) -> None:
         stderr = ""
         stdout = "not json"
 
-    monkeypatch.setattr(trivy.resolve_trivy_bin, "__call__", lambda *a, **k: "/usr/bin/trivy")
+    monkeypatch.setattr(trivy, "resolve_trivy_bin", lambda: "/usr/bin/trivy")
     monkeypatch.setattr(trivy.subprocess, "run", lambda *a, **k: _Bad())
     with pytest.raises(trivy.TrivyScanError, match="invalid JSON"):
         trivy._run_scan_sync("nginx", "docker", 60.0)
