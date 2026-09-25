@@ -58,6 +58,7 @@ async def fleet_overview(db: DB) -> dict[str, Any]:
                 "reason": s.get("reason"),
                 "engine": s.get("engine"),
                 "version": s.get("version"),
+                "kind": s.get("kind", "docker"),
                 "containers_total": int(s.get("containers_total", 0) or 0),
                 "containers_running": int(s.get("containers_running", 0) or 0),
                 "containers_stopped": int(s.get("containers_stopped", 0) or 0),
@@ -110,7 +111,7 @@ async def fleet_containers(
             return out
 
     jobs = [one(None, "local", None)]
-    jobs.extend(one(e.id, e.name, e.url) for e in endpoints if e.enabled)
+    jobs.extend(one(e.id, e.name, e.url) for e in endpoints if e.enabled and e.kind != "code")
     batches = await asyncio.gather(*jobs)
     merged: list[dict[str, Any]] = [row for batch in batches for row in batch]
     merged = merged[:limit]
@@ -213,6 +214,24 @@ async def delete_endpoint(endpoint_id: int, db: DB) -> None:
 async def test_endpoint(endpoint_id: int, db: DB) -> dict[str, Any]:
     """Probe one endpoint now and cache the result on the row."""
     endpoint: Endpoint = await get_or_404(db, Endpoint, endpoint_id, "Endpoint")
+    if endpoint.kind == "code":
+        from app.dockwatch.services.docker_manager import probe_code_endpoint
+
+        status = await probe_code_endpoint(endpoint)
+        available = bool(status.get("available"))
+        endpoint.touch(
+            "ok" if available else "unavailable", None if available else status.get("reason")
+        )
+        await db.commit()
+        return {
+            "endpoint_id": endpoint.id,
+            "endpoint_name": endpoint.name,
+            "available": available,
+            "reason": status.get("reason"),
+            "engine": status.get("engine"),
+            "version": status.get("version"),
+            "links_discovered": 0,
+        }
     service = await docker_manager.for_endpoint(endpoint)
     try:
         status = await service.status()

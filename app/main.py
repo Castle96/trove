@@ -67,6 +67,7 @@ from .dockwatch.api import (
     metrics_router,
     models_router,
     monitor_router,
+    pipeline_router,
     security_router,
     swarm_router,
     voice_router,
@@ -148,6 +149,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.info("voice (jarvis) agent ready")
         _voice_task = await start_voice_loop()
         logger.info("voice pipeline loop started")
+    if _dockwatch_settings.code_agents:
+        from .dockwatch.services.code_agents import ensure_code_agents
+
+        async with get_dockwatch_session_factory()() as session:
+            agents = await ensure_code_agents(session, _dockwatch_settings.code_agents)
+            logger.info("code agents ready: %s", ", ".join(a.name for a in agents))
     _container_stats_task = None
     if _dockwatch_settings.enable_container_stats:
         from .dockwatch.services.docker_manager import docker_manager
@@ -199,8 +206,8 @@ def create_app() -> FastAPI:
         description=(
             "Unified homelab control plane: certificate lifecycle / PKI "
             "(Trove) plus Docker monitoring, infrastructure inventory, "
-            "vulnerability scanning, model runtimes, agent swarm, and the "
-            "Jarvis voice pipeline (Dockwatch)."
+            "vulnerability scanning, model runtimes, agent swarm, dev pipelines, "
+            "and the Jarvis voice pipeline (Dockwatch)."
         ),
         version=__version__,
         contact={"name": "Trove"},
@@ -219,6 +226,10 @@ def create_app() -> FastAPI:
             {"name": "endpoints", "description": "Remote Dockwatch fleet endpoints."},
             {"name": "security", "description": "Trivy vulnerability scans and reports."},
             {"name": "models", "description": "LLM runtime node status (Ollama / llama.cpp)."},
+            {
+                "name": "pipeline",
+                "description": "Per-agent dev pipelines: live stages, runs, remote ingest.",
+            },
             {"name": "swarm", "description": "Agent-swarm dashboard: agents, projects, approvals."},
             {"name": "voice", "description": "Jarvis voice pipeline: live stages, latency, turns."},
             {
@@ -331,6 +342,7 @@ def create_app() -> FastAPI:
     app.include_router(endpoints_router, dependencies=dw_auth)
     app.include_router(security_router, dependencies=dw_auth)
     app.include_router(models_router, dependencies=dw_auth)
+    app.include_router(pipeline_router, dependencies=dw_auth)
     app.include_router(swarm_router, dependencies=dw_auth)
     app.include_router(voice_router, dependencies=dw_auth)
     # Prometheus scrape endpoint: deliberately unauthenticated.

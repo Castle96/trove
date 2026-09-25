@@ -11,7 +11,7 @@ auth model:
 | Subsystem | What it does | Docs |
 |-----------|--------------|------|
 | **PKI / CertVault** | Real x509 certificate lifecycle: issuance, local CA, OCSP/CRL, approvals, renewals, encrypted keys | this README + `docs/OPERATIONS.md` |
-| **Dockwatch** | Docker monitoring (containers/stacks/images/services), host + container metrics, Trivy vulnerability scans, infrastructure inventory, agent swarm, Jarvis voice pipeline | `docs/DOCKWATCH.md` |
+| **Dockwatch** | Docker monitoring (containers/stacks/images/services), host + container metrics, Trivy vulnerability scans, infrastructure inventory, agent swarm, Jarvis voice pipeline, dev pipelines (smol language agents) | `docs/DOCKWATCH.md` |
 | **API Gateway** | Kong-style `/<slug>` routes with consumers, API keys, per-route rate limits, TLS issuance, and a public hot path at `/gw/<slug>` | `docs/GATEWAY.md` |
 
 ## Quickstart
@@ -98,6 +98,11 @@ docker compose logs -f trove
 - **Infrastructure inventory** — sites, racks, devices, and IP addresses.
 - **Agent swarm** — agents, projects, tasks, approvals, notifications.
 - **Models** — Ollama / llama.cpp runtime node status.
+- **Dev pipelines (smol language agents)** — a Pipelines tab recording one
+  pipeline run per repo per language agent (`ray`→rust, `fleet`→go,
+  `jarvis`→python). A `code-agent` console script clones an enrolled swarm
+  project and runs `checkout → deps → format → lint → build → test → report`
+  on the tailnet host, ingesting running/ok/error telemetry via `/api/pipeline/*`.
 - **Voice (Jarvis)** — pipeline telemetry: live stages, latency, turns; a
   `jarvis-worker` console script is provided.
 
@@ -270,6 +275,7 @@ schema ships at `/docs`.
 | GET/POST | `/api/swarm/*` | agents, projects, tasks, approvals, notifications |
 | GET | `/api/models/fleet`, `/config` | Ollama/llama.cpp nodes |
 | GET/POST | `/api/voice/*` | Jarvis pipeline telemetry / ingest |
+| GET/POST | `/api/pipeline/*` | dev-pipeline runs: ingest, live, overview, runs |
 | GET | `/api/metrics` | Prometheus export (unauthenticated) |
 
 ## Security notes

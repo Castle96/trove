@@ -1,6 +1,6 @@
 [project]
 name = "trove"
-version = "0.4.0"
+version = "0.5.0"
 description = "Unified homelab control plane: PKI & certificate lifecycle, Docker monitoring, inventory, vulnerability scanning, agent swarm, voice pipeline, and API gateway"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -51,10 +51,16 @@ dependencies = [
 
 [project.scripts]
 jarvis-worker = "app.dockwatch.services.voice_worker:main"
+code-agent = "app.dockwatch.services.code_worker:main"
 
 [project.optional-dependencies]
 voice-mic = [
     "sounddevice>=0.5.6",
+]
+# Development-pipeline code agents: smolagents (agentic fix loop) + the model
+# client it uses. Plain pipelines work without this extra (fix loop disabled).
+agents = [
+    "smolagents>=0.1",
 ]
 
 [dependency-groups]

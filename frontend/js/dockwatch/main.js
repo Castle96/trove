@@ -54,6 +54,7 @@ import {
 } from "./swarm.js";
 import { loadModels } from "./models.js";
 import { loadVoiceTab } from "./voice.js";
+import { loadPipelinesTab } from "./pipeline.js";
 import { loadInventory, loadIps } from "./inventory.js";
 import { initMonitor } from "./monitor.js";
 import { refreshActivity } from "./activity.js";
@@ -465,6 +466,8 @@ function bindStaticButtons() {
   if (modelsBtn) modelsBtn.addEventListener("click", loadModels);
   const voiceBtn = $("#refresh-voice");
   if (voiceBtn) voiceBtn.addEventListener("click", loadVoiceTab);
+  const pipelinesBtn = $("#refresh-pipelines");
+  if (pipelinesBtn) pipelinesBtn.addEventListener("click", loadPipelinesTab);
   const picker = $("#endpoint-picker");
   if (picker) picker.addEventListener("change", () => {
     state.selectedEndpoint = picker.value;
@@ -511,6 +514,11 @@ async function init() {
   setInterval(async () => {
     if (state.tab === "voice") loadVoiceTab();
   }, 4000);
+
+  // Dev pipelines are a live view — refresh while visible.
+  setInterval(async () => {
+    if (state.tab === "pipelines") loadPipelinesTab();
+  }, 5000);
 
   // Auto-refresh Docker-heavy views every 5s.
   setInterval(async () => {

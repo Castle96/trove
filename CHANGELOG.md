@@ -4,6 +4,39 @@ All notable changes to this project are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-09-25
+
+### Added
+- **Dev pipelines (smol language agents)** — a new Pipelines tab in the UI plus
+  `/api/pipeline/*` endpoints (ingest, live, overview, runs) that record one
+  pipeline run per repo per language agent. A `code-worker` console script
+  (`app/dockwatch/services/code_worker.py`, installable via
+  `uv sync --extra agents`) drives three tailnet hosts — `ray` (rust),
+  `fleet` (go), `jarvis` (python) — as `kind="code"` endpoints whose model
+  runtimes are probed via Ollama rather than Docker. The worker clones an
+  enrolled swarm project (`repo_url`+`branch`+`agent_id`), runs
+  `checkout → deps → format → lint → build → test → report`, and ingests
+  running/ok/error telemetry (failing stage short-circuits the rest; an
+  opt-in agentic `--fix-depth` loop retries format/lint/build/test via
+  smolagents against the model runtime). Re-running an unchanged commit is
+  skipped (`GET /api/pipeline/runs?limit=20` dedup), and `--mark-project-done`
+  can patch the project status back to `done`.
+- **QoL model training scaffold** — `training/` with `datasets.py` (turn
+  `git log -p` history into instruction/completion JSONL, stdlib-only),
+  `finetune.py` (QLoRA via transformers/PEFT, no trl), `requirements.txt`,
+  and a `README.md` walkthrough for fine-tuning small coding models.
+- **`kind` surfaced in fleet overview** — code endpoints now report
+  `"kind":"code"` instead of `"docker"` in `GET /api/endpoints/fleet/overview`.
+- **`project_id` on run reads** — `PipelineRunRead` now includes the run's
+  `project_id` so the worker and UI can correlate runs to enrolled projects.
+
+### Deploy
+- `Dockerfile.agents` (extends the `trove` image with git + rust/go toolchains
+  and a `code-agent` entrypoint) and `docker-compose.agents.yml`
+  (`--profile agents`): an `ollama` runtime, an isolated `trove-test` on
+  :8001, and the `ray`/`fleet`/`jarvis` workers. Documented in
+  `docs/DOCKWATCH.md` and `.env.example` (`DOCKWATCH_CODE_AGENTS`).
+
 ## [0.4.0] - 2026-09-25
 
 ### Added

@@ -120,6 +120,7 @@
         <button class="tab" data-tab="stacks"><i class="fa-solid fa-layer-group mr-1.5"></i>Stacks</button>
         <button class="tab" data-tab="images"><i class="fa-solid fa-images mr-1.5"></i>Images</button>
         <button class="tab" data-tab="fleet"><i class="fa-solid fa-server mr-1.5"></i>Fleet</button>
+        <button class="tab" data-tab="pipelines"><i class="fa-solid fa-code-branch mr-1.5"></i>Pipelines</button>
         <button class="tab" data-tab="projects"><i class="fa-solid fa-diagram-project mr-1.5"></i>Projects</button>
         <button class="tab" data-tab="models"><i class="fa-solid fa-microchip mr-1.5"></i>Models</button>
         <button class="tab" data-tab="voice"><i class="fa-solid fa-headset mr-1.5"></i>Voice</button>
@@ -389,6 +390,18 @@
                     </div>
                 </div>
                 <div id="links-table"></div>
+            </div>
+        </section>
+
+        <!-- ============ VIEW: PIPELINES (dev pipeline panels, inside Fleet) ============ -->
+        <section id="view-pipelines" class="view dw space-y-6" hidden>
+            <div class="panel full">
+                <div class="panel-head">
+                    <h2><i class="fa-solid fa-code-branch text-indigo-400 mr-2"></i>Dev pipelines</h2>
+                    <span class="small muted">language agents (ray / fleet / jarvis) running real builds for enrolled projects</span>
+                    <button class="btn" id="refresh-pipelines"><i class="fa-solid fa-rotate text-xs"></i> Refresh</button>
+                </div>
+                <div id="pipeline-panels"></div>
             </div>
         </section>
 

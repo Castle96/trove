@@ -5,6 +5,7 @@ from app.dockwatch.models.container_stats import ContainerStatsSnapshot
 from app.dockwatch.models.endpoint import Endpoint
 from app.dockwatch.models.inventory import Device, IPAddress, Rack, Site
 from app.dockwatch.models.monitor import MonitorSample
+from app.dockwatch.models.pipeline import PipelineRun, PipelineStageSample
 from app.dockwatch.models.security import ImageScan
 from app.dockwatch.models.swarm import Agent, Project, SwarmNotification
 from app.dockwatch.models.swarm_tasks import ConversationMessage, Task
@@ -20,6 +21,8 @@ __all__ = [
     "IPAddress",
     "ImageScan",
     "MonitorSample",
+    "PipelineRun",
+    "PipelineStageSample",
     "Project",
     "Rack",
     "Site",

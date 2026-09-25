@@ -18,6 +18,7 @@ additionally require `operator`, and destructive/admin actions `admin`.
 | LLM model nodes | `api/models.py` | `llm_service.py` |
 | Agent swarm | `api/swarm.py` | swarm models/schemas |
 | Voice pipeline | `api/voice.py` | `voice_pipeline.py`, `voice_worker.py`, `voice_persistence.py` |
+| Dev pipelines | `api/pipeline.py` | `code_agents.py`, `pipeline_persistence.py`, `code_worker.py` (`code-agent` script) |
 | Prometheus | `api/metrics.py` | `services/metrics.py` middleware |
 | Infrastructure | `middleware.py`, `query_id` | access log, request IDs, security headers |
 
@@ -129,6 +130,66 @@ uv run jarvis-worker                    # see app/dockwatch/services/voice_worke
 # with microphone input:
 uv run --extra voice-mic jarvis-worker
 ```
+
+## Dev pipelines (smol language agents)
+
+`DOCKWATCH_CODE_AGENTS` registers a "family of models" — one small code agent
+per language (by default **ray → rust, fleet → go, jarvis → python**), each
+served by a smol model (default `qwen2.5-coder:1.5b`) on an Ollama/llama.cpp
+node — as `kind="code"` fleet endpoints *plus* swarm agents. They are seeded
+idempotently at startup; each becomes a card in the **Pipelines** tab:
+
+```json
+DOCKWATCH_CODE_AGENTS=[
+  {"name":"ray","language":"rust","model":"qwen2.5-coder:1.5b","engine":"ollama"},
+  {"name":"fleet","language":"go","model":"qwen2.5-coder:1.5b","engine":"ollama"},
+  {"name":"jarvis","language":"python","model":"qwen2.5-coder:1.5b","engine":"ollama"}
+]
+```
+
+The control plane stays **telemetry-only**: it probes each node's model runtime
+(`/api/tags`, kind `code`) for Fleet status and stores per-stage pipeline runs
+in its own DB (`pipeline_runs`, `pipeline_stage_samples`). A worker runs where
+the toolchains live —
+
+```bash
+uv run code-agent --agent-name ray --trove-url http://trove:8000 \
+    --ollama-url http://ray:11434 --model qwen2.5-coder:1.5b \
+    --fix-depth 2
+```
+
+Each poll cycle it heartbeats (`POST /api/swarm/agents/{id}/heartbeat`), finds
+its enrolled project (a swarm Project with a `repo_url` set on the Projects
+tab — repos stay unset until you enroll them, and point at your own git
+server), clones/fetches the branch, then runs
+`checkout → deps → format → lint → build → test → report` with per-language
+commands. Every result is reported via `POST /api/pipeline/ingest`; a failing
+stage short-circuits the rest unless `--fix-depth > 0`, in which case a local
+`smolagents` `CodeAgent` (needs `uv sync --extra agents` for the model client)
+is asked to repair it and the stage re-runs. The Fleet tab's "test" action also
+works on code endpoints (Ollama-style `/api/tags` probe).
+
+**Local sanity fleet** — brings up a throwaway control plane on :8001, a
+shared Ollama, and the three workers to exercise the whole loop before the
+real tailnet rollout:
+
+```bash
+docker build -f Dockerfile.agents -t trove-code-agent:latest .
+docker compose -f docker-compose.yml -f docker-compose.agents.yml \
+    --profile agents up -d --build
+```
+
+**Tailnet rollout** — on each node (or a JIT node per language), run the agent
+image with that node's hostname so trove reaches it by Tailscale magicDNS:
+`TROVE_URL=http://trove:<port>`, `CODE_AGENT_NAME=ray`,
+`OLLAMA_BASE_URL=http://ray:11434`, `CODE_AGENT_MODEL=<family-tag>`. The
+Pipelines tab shows each node's live stage flow, and `docker-compose.agents.yml`
+carries the compose wiring for the local profile.
+
+**Training** — the model family is meant to be fine-tuned on your real repos;
+see [`training/README.md`](../training/README.md) for the `git log -p` dataset
+builder + QLoRA scaffold that produces adapters the nodes serve via `ollama
+create <family-tag>`.
 
 ## Metrics
 

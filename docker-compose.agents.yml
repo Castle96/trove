@@ -1,0 +1,127 @@
+# ---------------------------------------------------------------------------
+# docker-compose.agents.yml — dev-pipeline code agents (ray / fleet / jarvis)
+#
+# Two use modes:
+#
+# 1) LOCAL SANITY FLEET (profiles: agents)
+#    Brings up a throwaway control plane (trove-test on :8001), one Ollama
+#    family node, and the three language workers so you can exercise the whole
+#    loop before touching the real tailnet:
+#
+#      docker compose -f docker-compose.yml -f docker-compose.agents.yml \
+#          --profile agents up -d --build
+#
+#    Then open http://localhost:8001, enroll a project (Projects tab) whose
+#    repo_url points at your git server, and watch the Pipelines tab run it
+#    through checkout → deps → format → lint → build → test → report.
+#
+# 2) TAILNET DEPLOY (see docs/DOCKWATCH.md)
+#    On each real node (ray=rust, fleet=go, jarvis=python) run the worker image
+#    with the node's own model runtime reachable via the tailnet hostname.
+#
+# Joins the same default project network as docker-compose.yml, so names like
+# `trove` and `ollama` resolve inside the compose network.
+# ---------------------------------------------------------------------------
+
+services:
+  # Shared local model runtime serving the whole family (CPU is fine for the
+  # qwen2.5-coder:1.5b-class models the code agents default to).
+  ollama:
+    image: ollama/ollama:latest
+    container_name: code-agent-ollama
+    restart: unless-stopped
+    profiles: ["agents"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+
+  # Throwaway control plane on port 8001 — a separate DB from the deployed
+  # trove so local experiments never touch real state.
+  trove-test:
+    image: trove:latest
+    container_name: trove-test
+    restart: unless-stopped
+    profiles: ["agents"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - TROVE_DATA_DIR=/app/data
+      - TROVE_DATABASE_URL=sqlite+aiosqlite:////app/data/trove.db
+      - DOCKWATCH_DATABASE_URL=sqlite+aiosqlite:////app/data/dockwatch.db
+      - TROVE_REQUIRE_LOCAL_ISSUANCE=true
+      # All three code agents share this family node in the local test. On the
+      # tailnet each node serves its own, so use per-host urls there.
+      - >-
+        DOCKWATCH_CODE_AGENTS=[{"name":"ray","language":"rust","model":"qwen2.5-coder:1.5b","endpoint_url":"http://ollama:11434"},{"name":"fleet","language":"go","model":"qwen2.5-coder:1.5b","endpoint_url":"http://ollama:11434"},{"name":"jarvis","language":"python","model":"qwen2.5-coder:1.5b","endpoint_url":"http://ollama:11434"}]
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./data-test:/app/data:z
+
+  ray:
+    image: trove-code-agent:latest
+    container_name: code-agent-ray
+    restart: unless-stopped
+    profiles: ["agents"]
+    depends_on:
+      trove-test:
+        condition: service_started
+      ollama:
+        condition: service_healthy
+    environment:
+      TROVE_URL: http://trove-test:8000
+      CODE_AGENT_NAME: ray
+      OLLAMA_BASE_URL: http://ollama:11434
+      CODE_AGENT_MODEL: qwen2.5-coder:1.5b
+      CODE_AGENT_LOG_LEVEL: INFO
+    volumes:
+      - agent-work:/app/work
+
+  fleet:
+    image: trove-code-agent:latest
+    container_name: code-agent-fleet
+    restart: unless-stopped
+    profiles: ["agents"]
+    depends_on:
+      trove-test:
+        condition: service_started
+      ollama:
+        condition: service_healthy
+    environment:
+      TROVE_URL: http://trove-test:8000
+      CODE_AGENT_NAME: fleet
+      OLLAMA_BASE_URL: http://ollama:11434
+      CODE_AGENT_MODEL: qwen2.5-coder:1.5b
+      CODE_AGENT_LOG_LEVEL: INFO
+    volumes:
+      - agent-work:/app/work
+
+  jarvis:
+    image: trove-code-agent:latest
+    container_name: code-agent-jarvis
+    restart: unless-stopped
+    profiles: ["agents"]
+    depends_on:
+      trove-test:
+        condition: service_started
+      ollama:
+        condition: service_healthy
+    environment:
+      TROVE_URL: http://trove-test:8000
+      CODE_AGENT_NAME: jarvis
+      OLLAMA_BASE_URL: http://ollama:11434
+      CODE_AGENT_MODEL: qwen2.5-coder:1.5b
+      CODE_AGENT_LOG_LEVEL: INFO
+    volumes:
+      - agent-work:/app/work
+
+volumes:
+  ollama:
+  agent-work:

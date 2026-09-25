@@ -88,6 +88,16 @@ class DockerEndpointManager:
 
         async def one_remote(endpoint: Endpoint) -> dict[str, Any]:
             async with sem:
+                if getattr(endpoint, "kind", "docker") == "code":
+                    # A code-agent endpoint is a model-runtime host (Ollama /
+                    # llama.cpp on ray/fleet/jarvis): probe reachability via the
+                    # LLM node check instead of the Docker API. Dev-pipeline
+                    # telemetry for the panel comes from trove's own DB, not here.
+                    return {
+                        "endpoint_id": endpoint.id,
+                        "endpoint_name": endpoint.name,
+                        **await probe_code_endpoint(endpoint),
+                    }
                 try:
                     service = await self.for_endpoint(endpoint)
                     status = await asyncio.wait_for(service.status(), timeout)
@@ -113,6 +123,27 @@ class DockerEndpointManager:
             eid = r.get("endpoint_id")
             r["kind"] = (by_id.get(eid) if isinstance(eid, int) else None) or "docker"
         return list(results)
+
+
+async def probe_code_endpoint(endpoint: Endpoint) -> dict[str, Any]:
+    """Probe a ``kind="code"`` endpoint (model runtime) for fleet status.
+
+    Returns a listener-shaped status dict (``available`` + ``engine`` +
+    ``version`` + model counts) so the fleet overview and ``test`` action work
+    for code agents exactly as they do for Docker endpoints. Never raises.
+    """
+    from app.dockwatch.services.llm_service import probe_node
+
+    node = await probe_node({"name": endpoint.name, "url": endpoint.url, "engine": "ollama"})
+    models = node.get("models", [])
+    return {
+        "available": bool(node.get("available")),
+        "reason": node.get("reason"),
+        "engine": str(node.get("engine", "")),
+        "version": node.get("version"),
+        "total_models": len(models),
+        "model_names": [str(m.get("name", "")) for m in models][:5],
+    }
 
 
 docker_manager = DockerEndpointManager()

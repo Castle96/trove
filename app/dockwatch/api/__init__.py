@@ -8,6 +8,7 @@ from app.dockwatch.api.links import router as links_router
 from app.dockwatch.api.metrics import router as metrics_router
 from app.dockwatch.api.models import router as models_router
 from app.dockwatch.api.monitor import router as monitor_router
+from app.dockwatch.api.pipeline import router as pipeline_router
 from app.dockwatch.api.security import router as security_router
 from app.dockwatch.api.swarm import router as swarm_router
 from app.dockwatch.api.voice import router as voice_router
@@ -21,6 +22,7 @@ __all__ = [
     "metrics_router",
     "models_router",
     "monitor_router",
+    "pipeline_router",
     "security_router",
     "swarm_router",
     "voice_router",

@@ -48,6 +48,13 @@ from app.dockwatch.schemas.links import (
     MapToGatewayRequest,
     MapToGatewayResult,
 )
+from app.dockwatch.schemas.pipeline import (
+    LiveEntry,
+    PipelineOverview,
+    PipelineRunRead,
+    StageIngest,
+    StageRead,
+)
 from app.dockwatch.schemas.security import ImageScanDetail, ImageScanRead, ScanRequest
 
 __all__ = [
@@ -82,8 +89,11 @@ __all__ = [
     "ImageScanRead",
     "InventoryOverview",
     "LogsResponse",
+    "LiveEntry",
     "MapToGatewayRequest",
     "MapToGatewayResult",
+    "PipelineOverview",
+    "PipelineRunRead",
     "RackCreate",
     "RackRead",
     "RackUpdate",
@@ -93,6 +103,8 @@ __all__ = [
     "SiteCreate",
     "SiteRead",
     "SiteUpdate",
+    "StageIngest",
+    "StageRead",
     "StackRead",
     "SwarmNode",
 ]

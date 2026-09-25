@@ -32,6 +32,40 @@ class ModelNode(BaseModel):
         return value
 
 
+#: Recognized language specializations for code agents.
+CODE_AGENT_LANGUAGES = ("rust", "go", "python")
+
+
+class CodeAgentConfig(BaseModel):
+    """One registered code agent (typically a tailnet host).
+
+    Each entry registers a ``kind="code"`` fleet endpoint pointing at the
+    host's model runtime (``endpoint_url``) plus a swarm ``Agent`` with the
+    language/model metadata. The agent's ``repo_url``/``branch`` stay unset
+    until a project is enrolled on the Projects tab — the worker then pulls
+    the project's repository from your git server.
+    """
+
+    name: str
+    #: ``rust`` | ``go`` | ``python``.
+    language: Literal["rust", "go", "python"]
+    #: smol code model served by this host (family-based, e.g. qwen2.5-coder).
+    model: str = "qwen2.5-coder:1.5b"
+    engine: Literal["ollama", "llamacpp"] = "ollama"
+    #: Base URL of the host's model runtime — used as the fleet endpoint URL.
+    endpoint_url: str | None = None
+
+    @field_validator("endpoint_url")
+    @classmethod
+    def _normalize_endpoint(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        value = value.strip().rstrip("/")
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("code agent endpoint_url must start with http:// or https://")
+        return value
+
+
 def _default_docker_socket_fallbacks() -> list[str]:
     """Socket URLs probed after ``docker_host`` when Docker is unreachable.
 
@@ -151,6 +185,26 @@ class Settings(BaseSettings):
     #: Parallelism + timeout for polling model nodes.
     model_poll_concurrency: int = 5
     model_poll_timeout: float = 5.0
+    #: Registered code agents (ray / fleet / jarvis ...): list of
+    #: ``{name, language, model, engine, endpoint_url}``. Each one becomes a
+    #: ``kind="code"`` fleet endpoint + a swarm Agent at startup. Holders stay
+    #: repo-less until a project is enrolled and assigned to them on the
+    #: Projects tab. Defaults to empty; override with ``DOCKWATCH_CODE_AGENTS``
+    #: as a JSON array, validated at startup. Uniqueness of names is enforced.
+    code_agents: list[CodeAgentConfig] = []
+
+    @field_validator("code_agents")
+    @classmethod
+    def _check_unique_code_agents(cls, value: list[CodeAgentConfig]) -> list[CodeAgentConfig]:
+        names = [a.name for a in value]
+        if len(names) != len(set(names)):
+            seen: set[str] = set()
+            for name in names:
+                if name in seen:
+                    raise ValueError(f"duplicate code agent name: {name!r}")
+                seen.add(name)
+        return value
+
     #: Voice assistant (Jarvis) pipeline telemetry: the master switch for the
     #: Voice dashboard, Jarvis agent registration, and retention pruning.
     enable_voice: bool = True

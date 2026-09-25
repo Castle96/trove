@@ -1,0 +1,10 @@
+# Training-time dependencies for the code-agent fine-tuning pipeline.
+# Install on the GPU box, NOT in the app's own environment:
+#   pip install -r training/requirements.txt
+torch>=2.3
+transformers>=4.45
+peft>=0.13
+bitsandbytes>=0.44
+datasets>=2.20
+accelerate>=0.34
+wandb>=0.17      # optional (--wandb)

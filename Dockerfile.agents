@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+#
+# Code-agent worker image: the trove image plus the real language toolchains
+# (rust/go/python) and the `agents` extra (smolagents for the agentic fix loop)
+# that the dev-pipeline workers need. Used by docker-compose.agents.yml for the
+# local sanity fleet; the same image is what each tailnet node (ray / fleet /
+# jarvis) runs. Built on trove:latest so the control-plane API client is
+# already present.
+#
+#   docker build -f Dockerfile.agents -t trove-code-agent:latest .
+
+FROM trove:latest
+
+USER root
+
+# Real toolchains for the per-language stage commands the worker runs.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        cargo \
+        rustc \
+        golang-go \
+    && rm -rf /var/lib/apt/lists/*
+
+# Agentic fix loop deps + per-language lint/test tools, installed into the
+# app venv so the `code-agent` console script keeps working.
+RUN /app/.venv/bin/pip install --no-cache-dir ruff pytest smolagents
+
+USER trove
+WORKDIR /app
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    CODE_WORKER_WORKSPACE=/app/work
+
+ENTRYPOINT ["code-agent"]
