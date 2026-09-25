@@ -55,6 +55,8 @@ class EndpointStatus(BaseModel):
     containers_running: int = 0
     containers_stopped: int = 0
     kind: str = "docker"
+    #: Ports discovered on the last successful probe (0 until a scan runs).
+    links_discovered: int = 0
 
 
 class FleetOverview(BaseModel):

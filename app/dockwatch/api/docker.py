@@ -117,12 +117,30 @@ async def list_containers(
     endpoint_id: int | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[dict[str, Any]]:
+    from app.dockwatch.services.discovery import compute_hotlinks
+
     service, eid, ename = await _resolve_service(endpoint_id, db)
+    endpoint_url = await _endpoint_url(endpoint_id, db)
     try:
         items = await service.list_containers(include_stats=include_stats)
     except DockerUnavailableError as exc:
         raise _docker_unavailable(exc) from exc
-    return _tag_containers([dict(c) for c in items[:limit]], eid, ename)
+    rows = [dict(c) for c in items[:limit]]
+    for row in rows:
+        row["links"] = compute_hotlinks(endpoint_url, row)
+    return _tag_containers(rows, eid, ename)
+
+
+async def _endpoint_url(endpoint_id: int | None, db: AsyncSession | None) -> str:
+    """URL the hotlink host/scheme rules resolve against."""
+    if endpoint_id is None:
+        from app.dockwatch.config import get_settings
+
+        return get_settings().docker_host or "unix:///var/run/docker.sock"
+    if db is None:  # pragma: no cover - defensive
+        return "localhost"
+    endpoint = await db.get(Endpoint, endpoint_id)
+    return endpoint.url if endpoint else "localhost"
 
 
 @router.get("/docker/containers/{container_id}", response_model=ContainerDetail)

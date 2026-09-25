@@ -30,3 +30,38 @@ async def client(tmp_path) -> AsyncGenerator[AsyncClient, None]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest_asyncio.fixture
+async def dw_db(tmp_path_factory):
+    """Point the Dockwatch SQLite DB at a throwaway file and create its tables.
+
+    ``httpx.ASGITransport`` never runs the FastAPI lifespan, so the dockwatch
+    tables (endpoints, container_links, monitors, ...) are created explicitly
+    here. Opt-in: only tests that request this fixture touch the dockwatch
+    database, and each requesting test gets a fresh file (no cross-test
+    pollution of ``./dockwatch.db``).
+    """
+    path = tmp_path_factory.mktemp("dockwatch") / "dockwatch.db"
+    os.environ["DOCKWATCH_DATABASE_URL"] = f"sqlite+aiosqlite:///{path}"
+
+    import app.dockwatch.database as dw_db_mod
+
+    # Drop any lazily-built engine so the fresh URL takes effect.
+    if dw_db_mod._engine is not None:
+        await dw_db_mod._engine.dispose()
+        dw_db_mod._engine = None
+        dw_db_mod._session_factory = None
+
+    from app.dockwatch.config import get_settings as dw_settings
+
+    dw_settings.cache_clear()
+
+    engine = dw_db_mod.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(dw_db_mod.Base.metadata.drop_all)
+        await conn.run_sync(dw_db_mod.Base.metadata.create_all)
+    yield
+    await engine.dispose()
+    dw_db_mod._engine = None
+    dw_db_mod._session_factory = None

@@ -6,6 +6,8 @@ wire format of every endpoint remains unchanged.
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.dockwatch.schemas.links import ContainerHotlink
+
 
 class DockerStatus(BaseModel):
     """Overall Docker-API engine availability + host summary."""
@@ -104,6 +106,9 @@ class ContainerRead(BaseModel):
     stack: str | None = None
     service: str | None = None
     stats: ContainerStats | None = None
+    #: Computed hotlinks from published ports (discovery rules), empty when the
+    #: container publishes nothing.
+    links: list[ContainerHotlink] = Field(default_factory=list)
     endpoint_id: int | None = None
     endpoint_name: str | None = None
 

@@ -110,6 +110,24 @@ a:focus-visible {
 .pill-danger { background: rgba(244, 63, 94, 0.12); color: #fb7185; border-color: rgba(244, 63, 94, 0.30); }
 
 /* ---------- status badges ---------- */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 1px 3px 1px 0;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.10);
+    border: 1px solid rgba(56, 189, 248, 0.30);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.chip:hover { background: rgba(56, 189, 248, 0.20); }
+.chip-scheme { font-size: 9px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em; }
 .badge {
     display: inline-block;
     padding: 2px 8px;

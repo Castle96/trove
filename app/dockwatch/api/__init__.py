@@ -4,6 +4,7 @@ from app.dockwatch.api.container_ranking import router as container_ranking
 from app.dockwatch.api.docker import router as docker_router
 from app.dockwatch.api.endpoints import router as endpoints_router
 from app.dockwatch.api.inventory import router as inventory_router
+from app.dockwatch.api.links import router as links_router
 from app.dockwatch.api.metrics import router as metrics_router
 from app.dockwatch.api.models import router as models_router
 from app.dockwatch.api.monitor import router as monitor_router
@@ -16,6 +17,7 @@ __all__ = [
     "docker_router",
     "endpoints_router",
     "inventory_router",
+    "links_router",
     "metrics_router",
     "models_router",
     "monitor_router",

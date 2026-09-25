@@ -162,6 +162,7 @@ async def create_endpoint(payload: EndpointCreate, db: DB) -> Endpoint:
         raise conflict_handler(exc) from exc
     await db.refresh(endpoint)
     activity_log.record("endpoint", "created", endpoint.name)
+    _queue_discovery(endpoint.id)
     return endpoint
 
 
@@ -227,6 +228,13 @@ async def test_endpoint(endpoint_id: int, db: DB) -> dict[str, Any]:
     available = bool(status.get("available"))
     reason = None if available else status.get("reason")
     endpoint.touch("ok" if available else "unavailable", reason)
+    links_discovered = 0
+    if available:
+        try:
+            discovery = await _run_discovery(db, endpoint, service)
+            links_discovered = int(discovery.get("total", 0))
+        except Exception:
+            links_discovered = 0
     await db.commit()
     return {
         "endpoint_id": endpoint.id,
@@ -238,4 +246,37 @@ async def test_endpoint(endpoint_id: int, db: DB) -> dict[str, Any]:
         "containers_total": int(status.get("containers_total", 0)),
         "containers_running": int(status.get("containers_running", 0)),
         "containers_stopped": int(status.get("containers_stopped", 0)),
+        "links_discovered": links_discovered,
     }
+
+
+async def _run_discovery(db: AsyncSession, endpoint: Endpoint, service: Any) -> dict[str, Any]:
+    from app.dockwatch.api.links import _discover_endpoint
+
+    return await _discover_endpoint(db, endpoint, service)
+
+
+def _queue_discovery(endpoint_id: int) -> None:
+    """Fire-and-forget auto-discovery so creating an endpoint never blocks on a scan."""
+    import asyncio
+    import logging
+
+    from app.dockwatch.database import get_session_factory
+
+    logger = logging.getLogger(__name__)
+
+    async def runner() -> None:
+        try:
+            async with get_session_factory()() as db:
+                endpoint: Endpoint | None = await db.get(Endpoint, endpoint_id)
+                if endpoint is not None and endpoint.enabled:
+                    service = await docker_manager.for_endpoint(endpoint)
+                    await _run_discovery(db, endpoint, service)
+        except Exception as exc:
+            logger.warning("auto-discovery skipped for endpoint %s: %s", endpoint_id, exc)
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    loop.create_task(runner())

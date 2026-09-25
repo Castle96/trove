@@ -40,7 +40,7 @@ import {
   scanImageNow,
   showScanDetail,
 } from "./docker.js";
-import { loadFleet } from "./fleet.js";
+import { loadFleet, discoverEndpoint, editLink, deleteLink, promoteLink } from "./fleet.js";
 import {
   loadProjectsTab,
   loadSwarmOverview,
@@ -137,6 +137,18 @@ function bindGlobalActions() {
         loadFleet();
         break;
       }
+      case "discover-endpoint":
+        discoverEndpoint(id);
+        break;
+      case "promote-link":
+        promoteLink(id);
+        break;
+      case "edit-link":
+        editLink(id);
+        break;
+      case "delete-link":
+        deleteLink(id);
+        break;
       case "toggle-endpoint": {
         const ep = state.endpoints.find((e) => e.id === Number(id));
         if (!ep) break;

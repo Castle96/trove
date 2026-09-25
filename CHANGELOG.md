@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-25
+
+### Added
+- **Port discovery (hotlinks)** — scanning an endpoint
+  (`POST /api/endpoints/{id}/discover`) lists its containers and persists one
+  `ContainerLink` per published host port. Links are clickable
+  `scheme://host:port` hotlinks managed under `/api/links` (list per endpoint
+  or fleet-wide, `PATCH` to relabel/retune/enable, `DELETE` to forget) and
+  shown as chips on the Containers tab.
+- **Promote to gateway** — `POST /api/links/{id}/map-to-gateway` turns a
+  discovered hotlink into a `GatewayRoute` (upstream = the discovered URL) in
+  one click, proxied at `/gw/<slug>`. The link records the resulting
+  `gateway_route_id` (plain integer across the separate Dockwatch/Trove DBs).
+- **Automatic discovery** — runs fire-and-forget on endpoint create and
+  synchronously after every successful endpoint `test` (reported as
+  `links_discovered` on `EndpointStatus`).
+- **Idempotent upsert semantics** — resyncs never duplicate rows; containers
+  that vanish from a scan are flagged `stale` (kept, never deleted). Editing a
+  link's scheme/host marks it `manual` so later scans don't overwrite it.
+- **Derivation rules** — host = specific `HostIp` binding, else the endpoint
+  host (`tcp://1.2.3.4:2375` → `1.2.3.4`, sockets → `localhost`); scheme =
+  `https` for published port `443` or container label `trove.link.scheme=https`;
+  alias = `trove.link.name` label, else container name. The same rules feed
+  live hotlink chips on `/api/docker/containers`.
+
+### Changed
+- Version bumped to 0.4.0.
+
 ## [0.3.0] - 2026-09-24
 
 ### Added

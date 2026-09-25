@@ -1,5 +1,6 @@
 """ORM models."""
 
+from app.dockwatch.models.container_link import ContainerLink
 from app.dockwatch.models.container_stats import ContainerStatsSnapshot
 from app.dockwatch.models.endpoint import Endpoint
 from app.dockwatch.models.inventory import Device, IPAddress, Rack, Site
@@ -11,6 +12,7 @@ from app.dockwatch.models.voice import VoiceStageSample, VoiceTurn
 
 __all__ = [
     "Agent",
+    "ContainerLink",
     "ContainerStatsSnapshot",
     "ConversationMessage",
     "Device",

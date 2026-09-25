@@ -88,6 +88,9 @@ docker compose logs -f trove
 
 - **Docker API** — containers, images, stacks, services, logs, per-container
   stats and a resource-usage ranking (`/api/docker/containers/ranking`).
+- **Port discovery** — scan any endpoint and its published ports become
+  clickable hotlinks (`/api/endpoints/{id}/discover`) that can be promoted
+  one-click into gateway routes.
 - **Host metrics** — a background sampler persists CPU/memory/disk samples with
   z-score anomaly detection and webhook alerting (cooldown-bucketed).
 - **Vulnerability scanning** — Trivy image scans with a background rescan loop
@@ -262,6 +265,8 @@ schema ships at `/docs`.
 | GET/POST | `/api/security/scans` (+ `/detail`) | Trivy scans |
 | GET/POST | `/api/inventory/*` | sites, racks, devices, IP addresses, search |
 | GET/POST | `/api/endpoints` (+ `/fleet/*`, `/count`) | remote fleet endpoints |
+| GET/POST | `/api/endpoints/{id}/discover`, `/api/links` | published-port discovery + hotlink registry |
+| GET/PATCH/DELETE | `/api/links/{id}`, `/api/links/{id}/map-to-gateway` | tune / delete / promote hotlinks to routes |
 | GET/POST | `/api/swarm/*` | agents, projects, tasks, approvals, notifications |
 | GET | `/api/models/fleet`, `/config` | Ollama/llama.cpp nodes |
 | GET/POST | `/api/voice/*` | Jarvis pipeline telemetry / ingest |

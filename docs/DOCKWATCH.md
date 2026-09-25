@@ -86,6 +86,37 @@ Remote Dockwatch instances register as endpoints (name + URL + token). The
 rows. `DOCKWATCH_AUTH_READONLY_TOKENS` (legacy) grants a read-only role to
 such agents.
 
+## Port discovery (hotlinks)
+
+Scanning an endpoint (`POST /api/endpoints/{id}/discover`) lists its
+containers, finds every **published** host port, and persists one
+`ContainerLink` per `(endpoint, container, port)` in the Dockwatch DB
+(`container_links`). Links are clickable `scheme://host:port` hotlinks that
+the Fleet tab renders and can promote into gateway routes
+(`POST /api/links/{id}/map-to-gateway` → a `GatewayRoute` on the Trove side,
+proxied at `/gw/<slug>`).
+
+Discovery runs automatically (fire-and-forget) right after an endpoint is
+created and synchronously after every successful `test`. It is an *upsert*:
+re-scans never duplicate rows, and a container that stops appearing is only
+flagged `stale` (never deleted) so history survives. Editing a link's
+`scheme`/`host` marks it `manual` and resyncs leave it alone.
+
+**How the hotlink URL is derived** (single rule-set in
+`app/dockwatch/services/discovery.py`):
+
+- **host** — a publish binding with a real interface IP (anything other than
+  `0.0.0.0`/`::`/empty) uses that IP; otherwise the endpoint host is used
+  (`tcp://1.2.3.4:2375` → `1.2.3.4`, `unix://...` → `localhost`).
+- **scheme** — `https` when the published port is `443` or the container is
+  labelled `trove.link.scheme=https`; else `http`.
+- **alias** — container label `trove.link.name`, falling back to the
+  container name / short id.
+
+The same rules produce a live `links` array on every
+`/api/docker/containers` row, so the Containers tab shows hotlink chips even
+before a scan persists anything.
+
 ## Voice pipeline (Jarvis)
 
 `enable_voice` turns on the voice dashboard, Jarvis agent registration, and

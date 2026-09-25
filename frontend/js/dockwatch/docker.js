@@ -209,6 +209,9 @@ export async function refreshContainers() {
       const stack = c.stack ? `<span class="badge badge-planned">${esc(c.stack)}</span>` : "";
       const ep = c.endpoint_id == null ? "" : ` data-endpoint="${c.endpoint_id}"`;
       const endpoint = state.selectedEndpoint === "all" ? `<td class="muted">${esc(c.endpoint_name || "local")}</td>` : "";
+      const hotlinks = (c.links || []).map((l) =>
+        `<a class="chip" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(l.container_port || "")} · ${esc(l.scheme)}">${esc(l.host_port)}<span class="chip-scheme">${esc(l.scheme)}</span></a>`
+      ).join("");
       return `<tr>
         <td class="mono">${esc(c.short_id)}</td>
         <td><strong>${esc(c.name)}</strong><div class="small muted">${stack}</div></td>
@@ -216,6 +219,7 @@ export async function refreshContainers() {
         ${endpoint}
         <td>${stateBadge(c.state)}</td>
         <td class="muted">${esc(c.status)}</td>
+        <td>${hotlinks || `<span class="muted">—</span>`}</td>
         <td>${cpu}</td><td>${mem}</td><td>${net}</td>
         <td>
           <button class="link" data-action="logs" data-id="${esc(c.id)}"${ep}>logs</button>
@@ -228,7 +232,7 @@ export async function refreshContainers() {
     .join("");
   const endpointHead = state.selectedEndpoint === "all" ? "<th>Endpoint</th>" : "";
   table.innerHTML = `<table>
-    <thead><tr><th>ID</th><th>Name</th><th>Image</th>${endpointHead}<th>State</th><th>Status</th><th>CPU</th><th>Mem</th><th>Net RX/TX</th><th>Actions</th></tr></thead>
+    <thead><tr><th>ID</th><th>Name</th><th>Image</th>${endpointHead}<th>State</th><th>Status</th><th>Ports</th><th>CPU</th><th>Mem</th><th>Net RX/TX</th><th>Actions</th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 
   if (rank) {

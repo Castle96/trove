@@ -39,6 +39,15 @@ from app.dockwatch.schemas.inventory import (
     SiteRead,
     SiteUpdate,
 )
+from app.dockwatch.schemas.links import (
+    ContainerHotlink,
+    ContainerLinkRead,
+    ContainerLinkUpdate,
+    ContainerLinkView,
+    DiscoveryResult,
+    MapToGatewayRequest,
+    MapToGatewayResult,
+)
 from app.dockwatch.schemas.security import ImageScanDetail, ImageScanRead, ScanRequest
 
 __all__ = [
@@ -46,11 +55,17 @@ __all__ = [
     "ContainerDeploy",
     "ContainerDeployResponse",
     "ContainerDetail",
+    "ContainerHotlink",
+    "ContainerLinkRead",
+    "ContainerLinkUpdate",
+    "ContainerLinkView",
     "ContainerRead",
+    "ContainerRankingEntry",
     "ContainerStats",
     "DeviceCreate",
     "DeviceRead",
     "DeviceUpdate",
+    "DiscoveryResult",
     "DockerStatus",
     "EndpointCreate",
     "EndpointRead",
@@ -67,6 +82,8 @@ __all__ = [
     "ImageScanRead",
     "InventoryOverview",
     "LogsResponse",
+    "MapToGatewayRequest",
+    "MapToGatewayResult",
     "RackCreate",
     "RackRead",
     "RackUpdate",

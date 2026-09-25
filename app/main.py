@@ -63,6 +63,7 @@ from .dockwatch.api import (
     docker_router,
     endpoints_router,
     inventory_router,
+    links_router,
     metrics_router,
     models_router,
     monitor_router,
@@ -325,6 +326,7 @@ def create_app() -> FastAPI:
     app.include_router(container_ranking, dependencies=dw_auth)
     app.include_router(docker_router, dependencies=dw_auth)
     app.include_router(inventory_router, dependencies=dw_auth)
+    app.include_router(links_router, dependencies=dw_auth)
     app.include_router(monitor_router, dependencies=dw_auth)
     app.include_router(endpoints_router, dependencies=dw_auth)
     app.include_router(security_router, dependencies=dw_auth)
