@@ -126,7 +126,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Trove subsystem (PKI, users, settings).
     await init_trove_db()
     async with get_trove_session_factory()() as db:
-        await seed_if_empty(db)
+        if _trove_settings.seed_demo_data:
+            await seed_if_empty(db)
     logger.info("trove database ready")
 
     # Dockwatch subsystem (monitoring, inventory, swarm, voice).

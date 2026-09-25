@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     # --- Issuance approval workflow ---
     require_approval: bool = False
 
+    # --- Local-only issuance guard ---
+    # When true, only the managed local CA may issue: the ACME provider is
+    # rejected at issuance/renewal and via the settings API, so no certificate
+    # can come from an external CA ("zero external issuers" invariant).
+    require_local_issuance: bool = False
+
+    # --- Demo seed data ---
+    # When true, an empty database is populated on first boot with the 5 demo
+    # certificates from app/seed.py. Off by default so production boot never
+    # injects external-issuer demo records.
+    seed_demo_data: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -63,11 +63,18 @@ def _socket_is_reachable(host: str) -> bool:
     Avoids pointless connection attempts (and misleading error messages) for
     obviously-missing sockets. Non-unix endpoints (``tcp://`` etc.) are always
     allowed through — the connection attempt itself decides.
+
+    ``stat`` on a socket can raise ``PermissionError`` (e.g. SELinux blocking
+    reads of ``docker.sock``); on Python 3.13 ``Path.exists()`` no longer
+    swallows ``OSError``, so treat *any* failure to stat as "not reachable".
     """
     prefix = "unix://"
     if not host.startswith(prefix):
         return True
-    return Path(host[len(prefix) :]).exists()
+    try:
+        return Path(host[len(prefix) :]).exists()
+    except OSError:
+        return False
 
 
 class DockerUnavailableError(RuntimeError):

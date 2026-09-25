@@ -6,10 +6,16 @@ services:
     image: trove:latest
     container_name: trove
     restart: unless-stopped
-    # Host docker group gid (963) so the non-root container user can open the
-    # mounted docker.sock for dockwatch stats/monitoring.
-    group_add:
-      - "963"
+    # NOTE: no docker.sock mount here, on purpose. Sharing a control socket
+    # grants the container root-equivalent control of the Docker daemon and,
+    # on nested/dind hosts, the bind does not even resolve to a usable socket.
+    # Without the mount, dockwatch reports host metrics and "docker unavailable"
+    # for container stats, while /api/ready stays 200. If you deploy on a
+    # trusted single-host Docker daemon and want live container stats:
+    #   - add:  /var/run/docker.sock:/var/run/docker.sock   under volumes
+    #   - add the host docker group's gid to `group_add`
+    #   - on SELinux-enforcing hosts run:
+    #       sudo setsebool -P container_connect_any on
     ports:
       - "8000:8000"
     environment:
@@ -18,6 +24,9 @@ services:
       - TROVE_DATA_DIR=/app/data
       - TROVE_DATABASE_URL=sqlite+aiosqlite:////app/data/trove.db
       - DOCKWATCH_DATABASE_URL=sqlite+aiosqlite:////app/data/dockwatch.db
+      # Zero-external-issuers invariant: only the managed local CA may issue.
+      # ACME is rejected at issuance/renewal and via the settings API.
+      - TROVE_REQUIRE_LOCAL_ISSUANCE=true
       # Local CA for real issuance / OCSP / CRL via the managed-CA API
       # (preferred over the legacy filesystem CA below).
       # - TROVE_CA_CERT_PATH=/app/data/ca/ca.crt
@@ -25,12 +34,6 @@ services:
     volumes:
       # :z relabels the volume for container access under SELinux (Enforcing).
       - ./data:/app/data:z
-      # Docker socket for dockwatch container stats/monitoring. Deliberately NOT
-      # labeled with :z — the socket must keep its native container_runtime_t
-      # label so the SELinux policy allows container_t to connectto it.
-      # NOTE: mounting the socket grants the container control over the Docker
-      # daemon (root-equivalent on the host). Keep this container trusted.
-      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
       interval: 30s

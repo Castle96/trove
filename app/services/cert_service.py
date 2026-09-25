@@ -121,9 +121,20 @@ async def get_provider_name(db: AsyncSession) -> str:
     return (await get_setting(db, SETTING_PROVIDER, "simulated")).strip().lower() or "simulated"
 
 
-async def _resolve_provider(db: AsyncSession) -> tuple[str, providers.Provider]:
-    """Build the active provider + its config from persisted settings."""
+async def _resolve_provider(db: AsyncSession) -> tuple[str, providers.Provider, str | None]:
+    """Build the active provider + its config from persisted settings.
+
+    Returns ``(name, provider, local_ca_cn)`` where ``local_ca_cn`` is the CN
+    of the CA that will actually sign locally issued leaves, or ``None`` when
+    no managed CA is active. Callers store that CN as the certificate's
+    ``issuer`` so the record truthfully names the signer.
+    """
     name = await get_provider_name(db)
+    if get_settings().require_local_issuance and name == "acme":
+        raise providers.IssuanceError(
+            "Local-only issuance is enabled (TROVE_REQUIRE_LOCAL_ISSUANCE=true); "
+            "external ACME issuance is disabled"
+        )
     config = providers.ProviderConfig(name=name)
     if name == "acme":
         settings = get_settings()
@@ -140,12 +151,14 @@ async def _resolve_provider(db: AsyncSession) -> tuple[str, providers.Provider]:
     # Simulated/local-CA path: attach the active CA's material (if any) so
     # leaves are signed by the internal PKI rather than self-signed.
     ca = await _active_local_ca(db)
+    local_ca_cn: str | None = None
     if ca is not None and ca.private_key:
         config.local_ca = providers.LocalCASigningContext(
             cert_pem=ca.cert_pem,
             key_pem=key_store.decrypt_value(ca.private_key),
         )
-    return name, providers.get_provider(name=name, config=config)
+        local_ca_cn = ca.cn
+    return name, providers.get_provider(name=name, config=config), local_ca_cn
 
 
 async def _active_local_ca(db: AsyncSession) -> models.CaAuthority | None:
@@ -270,7 +283,8 @@ def _store_cert_key(cert: models.Certificate, issued: providers.IssuedCertData) 
 
 async def issue_cert(db: AsyncSession, payload: schemas.CertCreate) -> models.Certificate:
     now = await sim_now(db)
-    _provider_name, provider = await _resolve_provider(db)
+    _provider_name, provider, local_ca_cn = await _resolve_provider(db)
+    issuer = local_ca_cn or payload.issuer
     try:
         issued = await asyncio.to_thread(
             provider.issue,
@@ -278,7 +292,7 @@ async def issue_cert(db: AsyncSession, payload: schemas.CertCreate) -> models.Ce
             sans=payload.sans,
             key_type=payload.key_type,
             validity_days=payload.validity_days,
-            issuer=payload.issuer,
+            issuer=issuer,
             not_before=now,
         )
     except providers.IssuanceError as exc:
@@ -290,7 +304,7 @@ async def issue_cert(db: AsyncSession, payload: schemas.CertCreate) -> models.Ce
         id=_new_id(),
         cn=payload.cn,
         sans=payload.sans or [payload.cn],
-        issuer=payload.issuer,
+        issuer=issuer,
         protocol=payload.protocol,
         key_type=payload.key_type,
         serial=issued.serial,
@@ -306,7 +320,7 @@ async def issue_cert(db: AsyncSession, payload: schemas.CertCreate) -> models.Ce
     db.add(cert)
     await log_entry(
         db,
-        f"Certificate issued for {payload.cn} via {payload.issuer} ({payload.protocol}). "
+        f"Certificate issued for {payload.cn} via {issuer} ({payload.protocol}). "
         f"Serial: {issued.serial}",
         "success",
         cert.id,
@@ -319,7 +333,7 @@ async def issue_cert(db: AsyncSession, payload: schemas.CertCreate) -> models.Ce
     await notify_event(
         db,
         "Certificate issued",
-        f"{payload.cn} issued via {payload.issuer} - expires {issued.not_after.date()}",
+        f"{payload.cn} issued via {issuer} - expires {issued.not_after.date()}",
         "success",
     )
     if not webhook_ok:
@@ -333,14 +347,15 @@ async def renew_cert(
 ) -> models.Certificate:
     now = await sim_now(db)
     validity = await get_validity_days(db)
-    _provider_name, provider = await _resolve_provider(db)
+    _provider_name, provider, local_ca_cn = await _resolve_provider(db)
+    issuer = local_ca_cn or cert.issuer
     try:
         issued = await asyncio.to_thread(
             provider.renew,
             cn=cert.cn,
             sans=cert.sans,
             key_type=cert.key_type,
-            issuer=cert.issuer,
+            issuer=issuer,
             not_before=now,
             validity_days=validity,
         )
@@ -354,6 +369,7 @@ async def renew_cert(
     cert.fingerprint = issued.fingerprint
     cert.not_before = issued.not_before
     cert.not_after = issued.not_after
+    cert.issuer = issuer
     _store_cert_key(cert, issued)
 
     await log_entry(
@@ -742,6 +758,7 @@ async def read_settings(db: AsyncSession) -> schemas.SettingsRead:
     return schemas.SettingsRead(
         provider=provider,
         secrets_backend="vault" if secret_store.vault_configured() else "local",
+        require_local_issuance=get_settings().require_local_issuance,
         acme_directory_url=await get_setting(db, SETTING_ACME_URL, settings.acme_directory_url),
         acme_contact_email=await get_setting(db, SETTING_ACME_CONTACT, ""),
         acme_validation=await get_setting(db, SETTING_ACME_VALIDATION, "dns-01"),
@@ -769,6 +786,11 @@ async def update_settings(db: AsyncSession, payload: schemas.SettingsUpdate) -> 
         validated = payload.provider.strip().lower()
         if validated not in ("simulated", "acme"):
             raise ValueError("provider must be 'simulated' or 'acme'")
+        if validated == "acme" and get_settings().require_local_issuance:
+            raise ValueError(
+                "Local-only issuance is enabled (TROVE_REQUIRE_LOCAL_ISSUANCE=true); "
+                "the ACME provider is disabled"
+            )
         await set_setting(db, SETTING_PROVIDER, validated)
     if payload.acme_directory_url:
         await set_setting(db, SETTING_ACME_URL, payload.acme_directory_url.strip())

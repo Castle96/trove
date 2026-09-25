@@ -74,7 +74,9 @@ For anything beyond localhost, put TLS in front:
 ## Threat model / hardening
 
 - The Docker socket mount (`/var/run/docker.sock`) is root-equivalent on the
-  host — keep the container trusted, on a trusted network.
+  host — the shipped `docker-compose.yml` omits it; if you add it for live
+  container stats, keep the container trusted on a trusted network. On
+  SELinux-enforcing hosts, also run `sudo setsebool -P container_connect_any on`.
 - The gateway hot path `/gw/<slug>` is public; protect every real route with
   `api_key` + a rate limit.
 - OCSP `/api/ocsp` is unauthenticated by design (standard OCSP clients send no
@@ -89,7 +91,7 @@ For anything beyond localhost, put TLS in front:
 
 | Symptom | Likely cause / fix |
 |---------|--------------------|
-| Health ok but `/api/docker/*` empty/5xx | Docker socket not readable by the container user (`group_add` GID mismatch), or Podman-only host lacking a fallback socket. Check `GET /api/ready` `checks.docker` and container logs. |
+| Health ok but `/api/docker/*` empty/5xx | Docker socket not readable by the container user (`group_add` GID mismatch), or Podman-only host lacking a fallback socket. On SELinux-enforcing hosts also run `sudo setsebool -P container_connect_any on`. Check `GET /api/ready` `checks.docker` and container logs. |
 | Anomaly webhooks spam | raise `DOCKWATCH_ALERT_COOLDOWN_SECONDS` or lower `DOCKWATCH_MONITOR_ANOMALY_ZSCORE` |
 | Trivy scan 501/503 | Trivy not installed / `DOCKWATCH_TRIVY_BIN` not resolvable; first scan downloads the DB (`trivy_timeout`) |
 | `database is locked` | many writers; single-worker topology is expected — schedule only one process against SQLite |

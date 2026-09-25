@@ -138,6 +138,47 @@ async def test_signing_through_ca_changes_issuer(client) -> None:
     assert leaf.issuer.rfc4514_string().endswith("Trove Test Root CA")
 
 
+async def test_issued_issuer_labels_the_actual_signer(client) -> None:
+    """With an active CA, the stored issuer is the CA CN, not the request label."""
+    ca = await _create_root(client, cn="Truthful Home CA")
+    res = await client.post(
+        "/api/certs",
+        json={
+            "cn": "truthful.home.arpa",
+            "sans": ["truthful.home.arpa"],
+            "issuer": "Let's Encrypt",
+            "protocol": "ACME DNS-01 (Cloudflare)",
+            "key_type": "ECDSA P-256",
+            "validity_days": 90,
+            "auto_renew": True,
+        },
+    )
+    assert res.status_code == 201
+    assert res.json()["issuer"] == ca["cn"]
+
+
+async def test_local_only_issuance_rejects_acme_settings(client, monkeypatch) -> None:
+    """TROVE_REQUIRE_LOCAL_ISSUANCE forbids switching the provider to ACME."""
+    from app.config import get_settings
+
+    monkeypatch.setenv("TROVE_REQUIRE_LOCAL_ISSUANCE", "true")
+    get_settings.cache_clear()
+    try:
+        res = await client.put(
+            "/api/settings",
+            json={"provider": "acme"},
+        )
+        assert res.status_code == 422
+        body = res.json()
+        assert "acme" in str(body["detail"] if "detail" in body else body).lower()
+    finally:
+        get_settings.cache_clear()
+
+    # Simulated provider remains usable.
+    res = await client.put("/api/settings", json={"provider": "simulated"})
+    assert res.status_code == 200
+
+
 async def test_sign_csr_returns_cert(client) -> None:
     await _create_root(client)
     csr_der, _key = crypto_service.generate_csr(

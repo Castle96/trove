@@ -52,10 +52,15 @@ The full set is defined in `app/dockwatch/config.py`; the commonly-tuned ones:
 
 ## Docker
 
-Requires a Docker-API-compatible socket. The compose file mounts
-`/var/run/docker.sock` and adds the host's Docker `group_add` GID so the
-non-root container user can read it. Podman fallbacks are configured by default
-so a rootless Podman host works without config.
+Requires a Docker-API-compatible socket. The shipped `docker-compose.yml`
+omits the socket mount (root-equivalent, and unresolvable on nested/dind
+hosts). To enable live container stats on a trusted host, add
+`/var/run/docker.sock:/var/run/docker.sock` under `volumes`, add the host's
+Docker `group_add` GID so the non-root container user can read it, and on
+SELinux-enforcing hosts run `sudo setsebool -P container_connect_any on`.
+Podman fallbacks are configured by default so a rootless Podman host works
+without config. Without a socket, host metrics still work and container stats
+report "unavailable".
 
 ## Host monitoring
 

@@ -53,7 +53,12 @@ docker compose logs -f trove
   `data/keys/master.key` (0600). Key/PKCS#12 download endpoints are admin-only.
 - **Managed local CA** — `POST /api/ca/root` / `/intermediate` builds a real
   root/intermediate CA whose key stays encrypted. Leaves issued through the
-  local-CA path are signed by the active CA instead of self-signed.
+  local-CA path are signed by the active CA instead of self-signed, and the
+  certificate's stored `issuer` is the signing CA's CN (not a free-text label).
+- **Local-only issuance guard** — with `TROVE_REQUIRE_LOCAL_ISSUANCE=true` the
+  ACME provider is rejected at issuance/renewal and via the settings API,
+  enforcing a zero-external-issuers invariant: every cert comes from the
+  managed CA. Demo seed data is opt-in (`TROVE_SEED_DEMO_DATA`).
 - **OCSP responder + CRL** — `/api/ocsp` (RFC 6960, DER POST or `?serial=` GET)
   and `/api/crl` are served from the managed CA.
 - **Pluggable providers** — `providers.py` defines the issuance interface.
@@ -305,8 +310,9 @@ Python 3.12 and 3.13 via `uv`, with a coverage floor enforced through
 - Enable user auth (`TROVE_ADMIN_USERNAME`/`TROVE_ADMIN_PASSWORD` bootstrap or
   `/api/users`) instead of the open/shared-key modes when more than one person
   has access.
-- Keep the Docker socket mount off the public path; if you don't need live
-  monitoring, drop the `volumes.docker.sock` line from `docker-compose.yml`.
+- The Docker socket mount is root-equivalent on the host; the shipped
+  `docker-compose.yml` omits it by default. Add it only on a trusted single-host
+  daemon if you need live container stats (see comment in `docker-compose.yml`).
 - Single uvicorn worker is the supported topology — SQLite is single-writer and
   the scheduler loops are best-effort. Scale with Postgres
   (`TROVE_DATABASE_URL`/`DOCKWATCH_DATABASE_URL` with `+asyncpg`) behind a proxy

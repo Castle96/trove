@@ -1,6 +1,6 @@
 [project]
 name = "trove"
-version = "0.2.0"
+version = "0.3.0"
 description = "Unified homelab control plane: PKI & certificate lifecycle, Docker monitoring, inventory, vulnerability scanning, agent swarm, voice pipeline, and API gateway"
 readme = "README.md"
 requires-python = ">=3.11"

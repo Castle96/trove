@@ -87,6 +87,7 @@ class TimeAdvance(BaseModel):
 class SettingsRead(BaseModel):
     provider: str  # simulated | acme
     secrets_backend: str  # local | vault
+    require_local_issuance: bool = False
     acme_directory_url: str
     acme_contact_email: str = ""
     acme_validation: str = "dns-01"

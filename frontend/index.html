@@ -623,20 +623,18 @@
                     <div>
                         <label class="block font-semibold text-gray-300 mb-1" for="issue-issuer">Certificate Authority / Provider</label>
                         <select id="issue-issuer" name="issuer" class="w-full bg-slate-950 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                            <option value="Trove Managed CA" selected>Trove Managed CA (Internal PKI)</option>
                             <option value="Let's Encrypt">Let's Encrypt (Production)</option>
                             <option value="Let's Encrypt Staging">Let's Encrypt (Staging)</option>
-                            <option value="step-ca (Internal PKI)">step-ca (Internal Root CA)</option>
-                            <option value="Vault PKI Engine">HashiCorp Vault PKI</option>
-                            <option value="Self-Signed">Self-Signed (Local Dev)</option>
                         </select>
                     </div>
                     <div>
                         <label class="block font-semibold text-gray-300 mb-1" for="issue-validation">Validation Method</label>
                         <select id="issue-validation" name="protocol" class="w-full bg-slate-950 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                            <option value="Internal CA API" selected>Internal CA API (Trove Managed)</option>
                             <option value="ACME DNS-01 (Cloudflare)">ACME DNS-01 (Cloudflare)</option>
                             <option value="ACME HTTP-01 (Caddy/Nginx)">ACME HTTP-01 (Proxy Challenge)</option>
                             <option value="ACME TLS-ALPN-01">ACME TLS-ALPN-01</option>
-                            <option value="Internal CA API">Internal CA API Token</option>
                         </select>
                     </div>
                 </div>
